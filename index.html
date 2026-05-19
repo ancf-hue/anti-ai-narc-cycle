@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Анти ИИ | Нарциссический цикл</title>
+<link rel="icon" href="favicon.ico" type="image/x-icon">
+<style>
+:root {
+  --bg: #0b0d12; --surface: rgba(22,24,32,0.94);
+  --text: #e6eaf0; --muted: #8a92a6;
+  --accent: #00d4ff; --success: #2ecc71; --warning: #f39c12;
+  --phase1: #9b59b6; --phase2: #e74c3c; --phase3: #2c3e50; --phase4: #f39c12;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --radius: 12px; --transition: 0.2s ease;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; display: flex; justify-content: center; padding: 20px; line-height: 1.5; }
+#app { width: 100%; max-width: 680px; background: var(--surface); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius); padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin: auto; }
+
+/* === ЗАГОЛОВОК С ЛОГОТИПОМ === */
+h1 { font-size: 1.6rem; text-align: center; margin-bottom: 6px; background: linear-gradient(90deg, var(--accent), #6c5ce7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; }
+h1 .logo { width: 36px; height: 36px; opacity: 0.95; vertical-align: middle; flex-shrink: 0; }
+h1 .logo.hidden { display: none; }
+
+.sub { text-align: center; color: var(--muted); font-size: 0.85rem; margin-bottom: 18px; }
+textarea, input[type="text"], input[type="date"] { width: 100%; padding: 12px; background: rgba(0,0,0,0.35); color: var(--text); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; font-size: 0.95rem; outline: none; transition: var(--transition); }
+textarea:focus, input:focus { border-color: var(--accent); }
+textarea { min-height: 100px; resize: vertical; margin-bottom: 12px; }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+button { padding: 10px 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: var(--transition); background: var(--accent); color: #0b0d12; flex: 1; min-width: 90px; font-size: 0.9rem; }
+button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+button:hover:not(:disabled) { opacity: 0.85; transform: translateY(-1px); }
+button.secondary { background: rgba(255,255,255,0.08); color: var(--text); }
+button.danger { background: rgba(231,76,60,0.2); color: var(--phase2); }
+select { background: rgba(255,255,255,0.08); color: var(--text); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 9px; cursor: pointer; flex: 1; }
+.result { margin-top: 12px; padding: 14px; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 4px solid var(--muted); display: none; animation: fadeIn 0.3s ease; }
+.result.active { display: block; }
+.phase-tag { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; margin: 3px 4px 6px 0; color: #fff; font-weight: 500; }
+.cycle-bar { height: 5px; background: rgba(255,255,255,0.05); border-radius: 3px; margin: 10px 0; overflow: hidden; }
+.cycle-fill { height: 100%; background: linear-gradient(90deg, var(--phase1), var(--phase2), var(--phase4), var(--phase3)); width: 0%; transition: width 0.6s ease; border-radius: 3px; }
+details { margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px; }
+details summary { cursor: pointer; color: var(--accent); font-weight: 600; user-select: none; }
+.timeline-item { padding: 6px 0; border-bottom: 1px dashed rgba(255,255,255,0.06); font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; }
+.checklist-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.checklist-item input { margin-top: 4px; accent-color: var(--accent); }
+.checklist-item.completed label { text-decoration: line-through; color: var(--muted); }
+.tool-card { background: rgba(0,0,0,0.25); padding: 12px; border-radius: 8px; margin-bottom: 12px; }
+.tool-card h4 { margin-bottom: 6px; font-size: 0.95rem; }
+.table-wrap { overflow-x: auto; margin-top: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+th, td { padding: 6px 8px; border: 1px solid rgba(255,255,255,0.1); text-align: left; }
+th { background: rgba(255,255,255,0.05); }
+.counter-box { text-align: center; padding: 16px; background: rgba(0,212,255,0.08); border-radius: 10px; margin-bottom: 12px; }
+.counter-num { font-size: 2.2rem; font-weight: 700; color: var(--accent); }
+.disclaimer { background: rgba(243,156,18,0.15); padding: 10px; border-radius: 8px; font-size: 0.8rem; margin-top: 16px; color: var(--warning); border: 1px solid rgba(243,156,18,0.3); }
+
+/* === ПОДДЕРЖКА ПРОЕКТА === */
+.support { margin-top: 24px; padding: 20px; background: linear-gradient(135deg, rgba(0,212,255,0.1), rgba(155,89,182,0.1)); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); text-align: center; }
+.support h3 { margin-bottom: 12px; color: var(--accent); }
+.support p { font-size: 0.9rem; color: var(--muted); margin-bottom: 16px; }
+.phone-box { background: rgba(0,0,0,0.3); padding: 14px; border-radius: 10px; margin: 12px 0; display: inline-block; min-width: 200px; }
+.phone-num { font-size: 1.3rem; font-weight: 700; letter-spacing: 1px; margin-bottom: 8px; display: block; }
+.copy-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: var(--text); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: var(--transition); }
+.copy-btn:hover { background: rgba(255,255,255,0.2); }
+.copy-btn.copied { background: var(--success); color: #000; }
+.catalog-link { display: inline-block; margin-top: 16px; padding: 10px 20px; background: var(--accent); color: #0b0d12; border-radius: 8px; text-decoration: none; font-weight: 600; transition: var(--transition); }
+.catalog-link:hover { opacity: 0.85; transform: translateY(-1px); }
+.heart { color: #e74c3c; animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
+
+footer { margin-top: 20px; text-align: center; color: var(--muted); font-size: 0.7rem; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px; }
+.stealth #app { filter: blur(14px); pointer-events: none; opacity: 0.4; }
+.overlay { position: fixed; inset: 0; background: var(--bg); display: none; justify-content: center; align-items: center; z-index: 999; }
+.pin-box { background: var(--surface); padding: 28px; border-radius: var(--radius); text-align: center; width: 90%; max-width: 300px; }
+.pin-input { width: 100%; text-align: center; font-size: 1.5rem; padding: 10px; background: rgba(0,0,0,0.4); color: var(--text); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; margin: 14px 0; letter-spacing: 5px; }
+.warning { color: var(--warning); font-size: 0.8rem; margin-top: 8px; }
+@keyframes fadeIn { from { opacity:0; transform: translateY(5px); } to { opacity:1; transform: translateY(0); } }
+@media print {
+  body { background: #fff; color: #000; }
+  .controls, details, footer, #stealth-overlay, textarea, .support { display: none !important; }
+  #app { box-shadow: none; border: none; padding: 0; }
+  .result { display: block !important; border: 1px solid #ccc; page-break-inside: avoid; }
+  .phase-tag { border: 1px solid #666; color: #000 !important; background: transparent !important; }
+}
+</style>
+</head>
+<body>
+
+<main id="app">
+  <!-- ЗАГОЛОВОК С ЛОГОТИПОМ -->
+  <h1>
+    <img src="favicon.ico" alt="Logo" class="logo" onerror="this.style.display='none'">
+    <span>Нарциссический цикл</span>
+  </h1>
+  <p class="sub">Локальный анализ. Данные не покидают устройство. Это образовательный инструмент поддержки.</p>
+  
+  <textarea id="input" placeholder="Вставьте сообщение, расшифровку голоса или описание ситуации..."></textarea>
+  
+  <div class="controls">
+    <button id="analyzeBtn" onclick="analyze()">🔍 Проверить</button>
+    <select id="exportFormat">
+      <option value="json">📦 JSON (бэкап)</option>
+      <option value="csv">📊 CSV (Excel)</option>
+      <option value="txt">📝 TXT (чтение)</option>
+    </select>
+    <button class="secondary" onclick="exportLog(document.getElementById('exportFormat').value)">📥 Экспорт</button>
+    <button class="secondary" onclick="toggleStealth()">👁 Скрыть</button>
+    <button class="danger" onclick="clearData()">🗑 Очистить всё</button>
+  </div>
+
+  <div id="result" class="result"></div>
+
+  <details>
+    <summary>📊 Хронология цикла</summary>
+    <div id="timeline" style="margin-top:10px; max-height: 180px; overflow-y: auto;"></div>
+  </details>
+
+  <details>
+    <summary>🧩 Механизмы цикла</summary>
+    <div class="tool-card">
+      <h4>1. Потребность в «нарциссическом ресурсе»</h4>
+      <p style="font-size:0.85rem; color:var(--muted); margin-bottom:8px;">Постоянное внешнее подтверждение грандиозности. Восхищение, внимание, подчинение, терпение к выходкам. Когда ресурс «истощается» → переход к обесцениванию.</p>
+      <h4>2. Отсутствие эмпатии</h4>
+      <p style="font-size:0.85rem; color:var(--muted); margin-bottom:8px;">Люди воспринимаются как «объекты». Разрыв даётся легко, без вины или сожаления.</p>
+      <h4>3. Проекция и обесценивание</h4>
+      <p style="font-size:0.85rem; color:var(--muted); margin-bottom:8px;">Собственные недостатки проецируются на партнёра. Критика защищает от ощущения «недостаточности».</p>
+      <h4>4. Зависимость от драмы</h4>
+      <p style="font-size:0.85rem; color:var(--muted);">Эмоциональные качели создают зависимость у жертвы. Нарцисс получает «допинг» внимания в моменты кризиса.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>🚶 8 шагов выхода (чек-лист)</summary>
+    <div id="exitSteps" style="margin-top:10px;"></div>
+    <div class="cycle-bar" style="margin-top:8px;"><div id="stepsProgress" class="cycle-fill" style="width:0%; background:var(--success);"></div></div>
+    <p id="stepsText" style="font-size:0.8rem; color:var(--muted); margin-top:4px;">0/8 шагов выполнено</p>
+  </details>
+
+  <details>
+    <summary>🛠️ Практические инструменты</summary>
+    <div class="counter-box">
+      <div class="counter-num" id="ncDays">0</div>
+      <div style="font-size:0.85rem; color:var(--muted);">дней без контакта</div>
+      <button class="secondary" style="margin-top:8px; padding:6px 12px; font-size:0.8rem;" onclick="resetNC()">🔄 Сбросить счётчик</button>
+    </div>
+
+    <div class="tool-card">
+      <h4>📓 Дневник КПТ (автоматические мысли)</h4>
+      <input type="date" id="cbtDate" style="margin-bottom:6px;">
+      <input type="text" id="cbtSit" placeholder="Ситуация (что произошло?)" style="margin-bottom:4px;">
+      <input type="text" id="cbtThought" placeholder="Мысль (что вы подумали?)" style="margin-bottom:4px;">
+      <input type="text" id="cbtAlt" placeholder="Альтернативная мысль (факты, не эмоции)" style="margin-bottom:6px;">
+      <button onclick="saveCBT()">💾 Сохранить запись</button>
+      <div id="cbtList" style="margin-top:8px; max-height:120px; overflow-y:auto; font-size:0.85rem;"></div>
+    </div>
+
+    <div class="tool-card">
+      <h4>📋 Таблица доказательств (против газлайтинга)</h4>
+      <div style="display:flex; gap:6px; margin-bottom:6px;">
+        <input type="text" id="evClaim" placeholder="Что говорил нарцисс" style="flex:1;">
+        <input type="text" id="evFact" placeholder="Реальный факт" style="flex:1;">
+        <button onclick="addEvidence()" style="flex:0; padding:8px;">➕</button>
+      </div>
+      <div class="table-wrap">
+        <table id="evTable"><thead><tr><th>Утверждение</th><th>Реальность</th><th>❌</th></tr></thead><tbody id="evBody"></tbody></table>
+      </div>
+    </div>
+
+    <div class="tool-card">
+      <h4>🗺 Карта границ (3 круга)</h4>
+      <p style="font-size:0.85rem; color:var(--muted); margin-bottom:6px;">Внутренний: только вы. Средний: доверенные. Внешний: все.</p>
+      <textarea id="boundMap" placeholder="Опишите, какие границы были нарушены и как вы планируете их восстановить..." style="min-height:60px;"></textarea>
+      <button onclick="saveBounds()">💾 Сохранить карту</button>
+    </div>
+  </details>
+
+  <details>
+    <summary>🧠 Тренажёр: распознай фазу</summary>
+    <div id="trainer" style="margin-top:12px;"></div>
+  </details>
+
+  <div class="disclaimer">⚠️ Приложение не заменяет профессиональную психотерапию. При симптомах ПТСР, панических атак или угрозе безопасности обратитесь к врачу или в кризисную службу.</div>
+
+  <!-- === ПОДДЕРЖАТЬ ПРОЕКТ === -->
+  <section class="support">
+    <h3>🤝 ПОДДЕРЖАТЬ ПРОЕКТ <span class="heart">💙</span></h3>
+    <p>Приложение бесплатное. Было и останется.<br>Если проект помог вам или вашим близким — можете поддержать разработку добровольным переводом.</p>
+    
+    <div class="phone-box">
+      <span class="phone-num" id="phoneNum">8-920-227-56-76</span>
+      <button class="copy-btn" onclick="copyPhone()">📋 Копировать номер</button>
+      <p style="font-size:0.75rem; color:var(--muted); margin-top:8px;">✅ Деньги придут мгновенно. Без комиссии. Безопасно.</p>
+    </div>
+    
+    <p style="margin-top:12px;"><span class="heart">❤️</span> Спасибо за поддержку!</p>
+    
+    <a href="https://ancf-hue.github.io/" target="_blank" rel="noopener" class="catalog-link">
+      🌟 Каталог бесплатных офлайн-приложений Anti-AI Shield
+    </a>
+  </section>
+
+  <footer>Анти ИИ | Социальный проект | 100% офлайн</footer>
+</main>
+
+<div class="overlay" id="stealthOverlay">
+  <div class="pin-box">
+    <p style="margin-bottom:8px;">🔒 Введите PIN для доступа</p>
+    <input type="password" class="pin-input" id="pin" maxlength="4" inputmode="numeric" autocomplete="off">
+    <button onclick="unlock()">Войти</button>
+    <p class="warning" style="margin-top:10px; font-size:0.75rem;">По умолчанию: 1234</p>
+  </div>
+</div>
+
+<script>
+// === КОНФИГУРАЦИЯ ФАЗ ===
+const PHASES = {
+  idealization: { name:"Идеализация", color:"#9b59b6", weight:2, advice:"⏸ Пауза 14 дней. Не принимайте обязательств. Гипервнимание ≠ безопасность.", markers:[/родственн.?\s?душ/i,/втор[ао]?\s?половин/i,/никогда не встреч/i,/боготвор/i,/вместе навсегда/i,/брак|дети|свадьб|переезд/i,/ты единствен/i,/как мы\s?похожи|зеркал/i,/понима[юеш]\s?с\s?полуслова/i] },
+  devaluation: { name:"Обесценивание", color:"#e74c3c", weight:3, advice:"🚧 Граница: «Я не принимаю критику в такой форме». Сохраните диалог. Не оправдывайтесь.", markers:[/вечно ты|опять за\s?своё|ничего путного/i,/тебе показалось|я такого не говорил|ты всё придумываешь|ты преувеличиваешь/i,/ты как все|недостаточно|хуже других|вот\s?[а-я]+ умеет/i,/холодность|игнор|сарказм|молчание|сравни/i,/почему ты не можешь|вечно опаздываешь|опять забыл/i] },
+  rejection: { name:"Отвержение", color:"#2c3e50", weight:4, advice:"🔒 Полный контакт-бэн. Не ищите «последний разговор». Это не про вас, это про сценарий.", markers:[/всё кончено|мы закончили|не звони|не пиши|исчез|блокиров/i,/ты сам.? виноват.?|ты разрушил.?|это твоя вина|я устал(а)? от тебя/i,/ты ничего не значил.?|как будто не было|нашёл(а)? другого|новый\s?партнёр/i] },
+  hoovering: { name:"Возврат", color:"#f39c12", weight:3, advice:"⛔ Игнорируйте. Это не раскаяние, а «перезарядка». Возврат = перезапуск цикла.", markers:[/скучаю|давай встретимся|я был(а)? дурак|ты лучший|ошибся|вернись|попробуем ещё раз/i,/обещаю измениться|без тебя не могу|это был тест|я всё осознал|давай начнём сначала/i,/мне нужен совет|ты только поймёшь|вспомни хорошее/i] }
+};
+
+// === Экранирование HTML (защита от XSS) ===
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
+}
+
+function escapeCsv(str) {
+  if (!str) return '';
+  return '"' + String(str).replace(/"/g, '""').replace(/\n/g, '\\n').replace(/\r/g, '\\r') + '"';
+}
+
+// === АНАЛИЗ ===
+function analyzeText(text) {
+  const hits = [];
+  for (const [key, p] of Object.entries(PHASES)) {
+    let score = 0; const found = [];
+    p.markers.forEach(r => { const m = text.match(r); if(m){ score+=p.weight; found.push(m[0]); }});
+    if(score) hits.push({key, name:p.name, color:p.color, score, found:[...new Set(found)], advice:p.advice});
+  }
+  return hits.sort((a,b)=>b.score-a.score);
+}
+
+function analyze() {
+  const btn = document.getElementById("analyzeBtn");
+  const originalText = btn.textContent;
+  btn.textContent = "⏳ Анализ...";
+  btn.disabled = true;
+  
+  const t = document.getElementById("input").value.trim();
+  const el = document.getElementById("result");
+  
+  if(!t) {
+    el.innerHTML = `<p>⚠️ Введите текст для анализа.</p>`;
+    el.style.borderLeftColor = "#f39c12";
+    el.classList.add("active");
+    btn.textContent = originalText;
+    btn.disabled = false;
+    return;
+  }
+  
+  const res = analyzeText(t);
+  
+  if(!res.length) {
+    el.innerHTML = `<p>✅ Явных маркеров не обнаружено.</p><p class="warning" style="margin-top:6px;">💡 Наблюдайте за динамикой 2–4 недели.</p>`;
+    el.style.borderLeftColor = "#2ecc71";
+  } else {
+    const maxScore = Math.min(res.reduce((a,b)=>a+b.score,0)*12, 100);
+    let html = `<h4>🔍 Паттерны:</h4><div>`;
+    res.forEach(r => html += `<span class="phase-tag" style="background:${r.color}">${escapeHtml(r.name)} (${r.score})</span>`);
+    html += `</div><div class="cycle-bar"><div class="cycle-fill" style="width:${maxScore}%"></div></div>`;
+    html += `<p style="margin-top:8px;">`;
+    res.forEach(r => {
+      html += `<b>${escapeHtml(r.name)}:</b> «${escapeHtml(r.found.slice(0,3).join('», «'))}»<br><small style="color:var(--muted)">${escapeHtml(r.advice)}</small><br><br>`;
+    });
+    html += `</p>`;
+    el.innerHTML = html;
+    el.style.borderLeftColor = res[0].color;
+    logEntry(res[0].key, t.slice(0,70));
+  }
+  el.classList.add("active");
+  
+  setTimeout(() => {
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }, 300);
+}
+
+// === ЛОГИРОВАНИЕ ===
+function logEntry(phase, snippet) {
+  try {
+    const log = JSON.parse(localStorage.getItem("antiAI_narcLog")||"[]");
+    log.push({ts:Date.now(), phase, snippet: snippet.substring(0,100), week:Math.floor(Date.now()/604800000)});
+    localStorage.setItem("antiAI_narcLog", JSON.stringify(log.slice(-150)));
+    renderTimeline();
+  } catch(e) { console.warn("Log save error:", e); }
+}
+
+function renderTimeline() {
+  try {
+    const log = JSON.parse(localStorage.getItem("antiAI_narcLog")||"[]");
+    const el = document.getElementById("timeline");
+    if(!log.length) { el.innerHTML = `<p style="color:var(--muted); font-size:0.85rem;">Журнал пуст.</p>`; return; }
+    el.innerHTML = log.slice(-6).reverse().map(e => {
+      const d = new Date(e.ts);
+      return `<div class="timeline-item">
+        <span>${d.toLocaleDateString()} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>
+        <span class="phase-tag" style="background:${PHASES[e.phase]?.color||'#888'}">${PHASES[e.phase]?.name||escapeHtml(e.phase)}</span>
+      </div>`;
+    }).join("");
+  } catch(e) { console.warn("Timeline render error:", e); }
+}
+
+// === ЭКСПОРТ ===
+function exportLog(format="json") {
+  try {
+    const raw = localStorage.getItem("antiAI_narcLog")||"[]";
+    const log = JSON.parse(raw);
+    if(!log.length) { alert("📭 Журнал пуст."); return; }
+    let content, mime, ext;
+    switch(format) {
+      case "json": content=JSON.stringify(log,null,2); mime="application/json"; ext="json"; break;
+      case "csv": 
+        const h=["Дата","Неделя","Фаза","Фрагмент","Рекомендация"];
+        content="\uFEFF" + h.join(",") + "\n" + log.map(e => [
+          new Date(e.ts).toLocaleString(),
+          e.week,
+          e.phase,
+          escapeCsv(e.snippet),
+          escapeCsv(PHASES[e.phase]?.advice||"")
+        ].join(",")).join("\n");
+        mime="text/csv;charset=utf-8"; ext="csv"; break;
+      case "txt": 
+        content="ЖУРНАЛ НАРЦИССИЧЕСКОГО ЦИКЛА (Анти ИИ)\n"+"=".repeat(40)+"\n\n"+log.map(e => `[${new Date(e.ts).toLocaleString()}] ${PHASES[e.phase]?.name||e.phase}\n📝 «${e.snippet}»\n💡 ${PHASES[e.phase]?.advice||''}\n${"─".repeat(35)}\n`).join("");
+        mime="text/plain;charset=utf-8"; ext="txt"; break;
+      default: return;
+    }
+    const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([content],{type:mime})); a.download=`narc-${new Date().toISOString().slice(0,10)}.${ext}`; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 100);
+  } catch(e) { alert("Ошибка экспорта: " + e.message); }
+}
+
+// === СКРЫТЫЙ РЕЖИМ & ОЧИСТКА ===
+function toggleStealth() {
+  if(!localStorage.getItem("antiAI_pin")) { 
+    const p=prompt("🔑 PIN (4 цифры):","1234"); 
+    if(p && /^\d{4}$/.test(p)) localStorage.setItem("antiAI_pin",p);
+    else return;
+  }
+  document.body.classList.add("stealth"); 
+  document.getElementById("stealthOverlay").style.display="flex"; 
+  document.getElementById("pin").focus();
+}
+
+function unlock() {
+  if(document.getElementById("pin").value === localStorage.getItem("antiAI_pin")) {
+    document.body.classList.remove("stealth"); 
+    document.getElementById("stealthOverlay").style.display="none"; 
+    document.getElementById("pin").value="";
+  } else {
+    alert("❌ Неверный PIN");
+    document.getElementById("pin").value="";
+  }
+}
+
+function clearData() {
+  if(confirm("⚠️ Удалить ВСЕ данные? Журнал, прогресс, дневники, границы. Действие необратимо.")) {
+    const keys = [];
+    for(let i=0; i<localStorage.length; i++) {
+      if(localStorage.key(i).startsWith("antiAI_")) keys.push(localStorage.key(i));
+    }
+    keys.forEach(k => localStorage.removeItem(k));
+    renderTimeline(); renderSteps(); loadCBT(); loadEvidence(); loadBounds(); updateNC();
+    document.getElementById("result").innerHTML=""; 
+    document.getElementById("result").classList.remove("active");
+    document.getElementById("input").value = "";
+    alert("✅ Данные очищены.");
+  }
+}
+
+// === 8 ШАГОВ ВЫХОДА ===
+const STEPS = [
+  "Осознать паттерн и начать вести дневник событий",
+  "Ввести эмоциональную дистанцию (техника «Серая скала»)",
+  "Установить жёсткие границы и последовательно их соблюдать",
+  "Применить «Сто шагов назад» при первой идеализации",
+  "Перейти к полному «Неконтакту» (No Contact)",
+  "Начать восстановление самооценки (список достижений, хобби)",
+  "Обратиться к специалисту (КПТ, EMDR, схема-терапия)",
+  "Выстроить профилактику рецидивов и новую социальную сеть"
+];
+
+function renderSteps() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("antiAI_steps")||"{}");
+    let html="", done=0;
+    STEPS.forEach((s,i) => {
+      const checked = saved[i] ? "checked" : "";
+      if(saved[i]) done++;
+      html += `<div class="checklist-item ${saved[i]?'completed':''}">
+        <input type="checkbox" id="step${i}" ${checked} onchange="toggleStep(${i})">
+        <label for="step${i}"><b>${i+1}.</b> ${escapeHtml(s)}</label>
+      </div>`;
+    });
+    document.getElementById("exitSteps").innerHTML = html;
+    document.getElementById("stepsProgress").style.width = `${(done/STEPS.length)*100}%`;
+    document.getElementById("stepsText").textContent = `${done}/${STEPS.length} шагов выполнено`;
+  } catch(e) { console.warn("Steps render error:", e); }
+}
+
+function toggleStep(i) {
+  try {
+    const saved = JSON.parse(localStorage.getItem("antiAI_steps")||"{}");
+    saved[i] = !saved[i];
+    localStorage.setItem("antiAI_steps", JSON.stringify(saved));
+    renderSteps();
+  } catch(e) { console.warn("Step toggle error:", e); }
+}
+
+// === ИНСТРУМЕНТЫ ===
+function updateNC() {
+  try {
+    const start = localStorage.getItem("antiAI_ncStart");
+    const el = document.getElementById("ncDays");
+    if(!start) { 
+      localStorage.setItem("antiAI_ncStart", Date.now()); 
+      el.textContent = "0"; 
+      return; 
+    }
+    const days = Math.floor((Date.now() - parseInt(start)) / 86400000);
+    el.textContent = Math.max(0, days);
+  } catch(e) { console.warn("NC update error:", e); }
+}
+
+function resetNC() {
+  if(confirm("Сбросить счётчик дней без контакта?")) {
+    localStorage.setItem("antiAI_ncStart", Date.now()); 
+    updateNC();
+  }
+}
+
+function saveCBT() {
+  const d = document.getElementById("cbtDate").value || new Date().toISOString().slice(0,10);
+  const sit = document.getElementById("cbtSit").value.trim();
+  const thou = document.getElementById("cbtThought").value.trim();
+  const alt = document.getElementById("cbtAlt").value.trim();
+  if(!sit || !thou) return alert("Заполните ситуацию и мысль.");
+  try {
+    const list = JSON.parse(localStorage.getItem("antiAI_cbt")||"[]");
+    list.unshift({d, sit: sit.substring(0,200), thou: thou.substring(0,200), alt: alt.substring(0,200)});
+    localStorage.setItem("antiAI_cbt", JSON.stringify(list.slice(-20)));
+    document.getElementById("cbtSit").value=""; 
+    document.getElementById("cbtThought").value=""; 
+    document.getElementById("cbtAlt").value="";
+    loadCBT();
+  } catch(e) { alert("Ошибка сохранения"); }
+}
+
+function loadCBT() {
+  try {
+    const list = JSON.parse(localStorage.getItem("antiAI_cbt")||"[]");
+    document.getElementById("cbtList").innerHTML = list.map(e => `<div style="padding:6px 0; border-bottom:1px dashed rgba(255,255,255,0.1);"><b>${escapeHtml(e.d)}</b><br>📝 ${escapeHtml(e.sit)} | 💭 ${escapeHtml(e.thou)} | 🔄 ${escapeHtml(e.alt)}</div>`).join("");
+  } catch(e) { console.warn("CBT load error:", e); }
+}
+
+function addEvidence() {
+  const c = document.getElementById("evClaim").value.trim();
+  const f = document.getElementById("evFact").value.trim();
+  if(!c || !f) return alert("Заполните оба поля");
+  try {
+    const data = JSON.parse(localStorage.getItem("antiAI_ev")||"[]");
+    data.unshift({c: c.substring(0,150), f: f.substring(0,150)});
+    localStorage.setItem("antiAI_ev", JSON.stringify(data.slice(-15)));
+    document.getElementById("evClaim").value=""; 
+    document.getElementById("evFact").value="";
+    loadEvidence();
+  } catch(e) { alert("Ошибка сохранения"); }
+}
+
+function loadEvidence() {
+  try {
+    const data = JSON.parse(localStorage.getItem("antiAI_ev")||"[]");
+    document.getElementById("evBody").innerHTML = data.map((e,i) => `<tr><td>${escapeHtml(e.c)}</td><td>${escapeHtml(e.f)}</td><td><button class="danger" style="padding:2px 6px; font-size:0.75rem;" onclick="delEv(${i})">✕</button></td>`).join("");
+  } catch(e) { console.warn("Evidence load error:", e); }
+}
+
+function delEv(i) {
+  try {
+    const data = JSON.parse(localStorage.getItem("antiAI_ev")||"[]");
+    data.splice(i,1);
+    localStorage.setItem("antiAI_ev", JSON.stringify(data));
+    loadEvidence();
+  } catch(e) { console.warn("Evidence delete error:", e); }
+}
+
+function saveBounds() {
+  const t = document.getElementById("boundMap").value.trim();
+  if(t) localStorage.setItem("antiAI_bounds", t.substring(0,1000));
+  alert("✅ Карта границ сохранена.");
+}
+
+function loadBounds() {
+  const val = localStorage.getItem("antiAI_bounds");
+  if(val) document.getElementById("boundMap").value = val;
+}
+
+// === ТРЕНАЖЁР ===
+const SCENARIOS = [
+  {q:"«Ты единственная, кто меня понимает. Давай уедем вместе через месяц»", a:"idealization", ex:"Планирование будущего + гиперидеализация."},
+  {q:"«Я такого не говорил. Тебе показалось. Ты всегда всё преувеличиваешь»", a:"devaluation", ex:"Газлайтинг + перенос ответственности."},
+  {q:"«Всё кончено. Ты сама виновата. Я уже встречаюсь с другой»", a:"rejection", ex:"Резкий разрыв + обвинение + замена."},
+  {q:"«Скучаю. Я был неправ. Давай встретимся без обязательств»", a:"hoovering", ex:"Возврат для «подзарядки» внимания."}
+];
+let tIdx = 0;
+let trainerTimer = null;
+
+function loadTrainer() {
+  if(trainerTimer) clearTimeout(trainerTimer);
+  const s = SCENARIOS[tIdx];
+  document.getElementById("trainer").innerHTML = `
+    <div class="tool-card">📝 Ситуация ${tIdx+1}: «${escapeHtml(s.q)}»</div>
+    <div class="controls" style="gap:6px;">${Object.keys(PHASES).map(k => `<button onclick="trainerCheck('${k}')">${PHASES[k].name}</button>`).join("")}</div>
+    <div id="tRes" class="tool-card" style="min-height:40px; font-size:0.85rem;">Выберите фазу...</div>`;
+}
+
+function trainerCheck(c) {
+  if(trainerTimer) clearTimeout(trainerTimer);
+  const s = SCENARIOS[tIdx];
+  const r = document.getElementById("tRes");
+  const ok = c === s.a;
+  r.innerHTML = ok ? `✅ Верно. ${escapeHtml(s.ex)}` : `❌ Нет. Это <b>${PHASES[s.a].name}</b>. ${escapeHtml(s.ex)}`;
+  r.style.background = ok ? "rgba(46,204,113,0.15)" : "rgba(231,76,60,0.15)";
+  tIdx = (tIdx + 1) % SCENARIOS.length;
+  trainerTimer = setTimeout(() => {
+    loadTrainer();
+    trainerTimer = null;
+  }, 2000);
+}
+
+// === КОПИРОВАНИЕ НОМЕРА ===
+function copyPhone() {
+  const num = document.getElementById("phoneNum").textContent;
+  const cleanNum = num.replace(/-/g, '');
+  navigator.clipboard.writeText(cleanNum).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    const originalText = btn.textContent;
+    btn.textContent = '✅ Скопировано!';
+    btn.classList.add('copied');
+    setTimeout(() => { 
+      btn.textContent = originalText; 
+      btn.classList.remove('copied'); 
+    }, 2000);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = cleanNum;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    const btn = document.querySelector('.copy-btn');
+    const originalText = btn.textContent;
+    btn.textContent = '✅ Скопировано!';
+    btn.classList.add('copied');
+    setTimeout(() => { 
+      btn.textContent = originalText; 
+      btn.classList.remove('copied'); 
+    }, 2000);
+  });
+}
+
+// === INIT ===
+document.addEventListener("DOMContentLoaded", () => {
+  renderTimeline(); 
+  renderSteps(); 
+  loadCBT(); 
+  loadEvidence(); 
+  loadBounds(); 
+  updateNC(); 
+  loadTrainer();
+  
+  const pinInput = document.getElementById("pin");
+  if(pinInput) {
+    pinInput.addEventListener("keypress", e => {
+      if(e.key === "Enter") unlock();
+    });
+  }
+  
+  const cbtDate = document.getElementById("cbtDate");
+  if(cbtDate) cbtDate.valueAsDate = new Date();
+});
+</script>
+</body>
+</html>
