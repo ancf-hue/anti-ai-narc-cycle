@@ -1,0 +1,21 @@
+# robots.txt для Анти ИИ | Нарциссический цикл
+# https://anti-ai-narc-cycle.vercel.app/
+
+User-agent: *
+Allow: /
+
+# Разрешаем индексацию главной страницы
+Allow: /index.html
+
+# Блокируем служебные пути (если появятся в будущем)
+Disallow: /api/
+Disallow: /admin/
+Disallow: /private/
+Disallow: /*.json$
+Disallow: /*.log$
+
+# Указываем путь к sitemap
+Sitemap: https://anti-ai-narc-cycle.vercel.app/sitemap.xml
+
+# Задержка для вежливого краулинга (опционально)
+Crawl-delay: 1
